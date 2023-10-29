@@ -22,19 +22,18 @@ class PianoRollDisplay {
     const cardDiv = document.createElement('div');
     cardDiv.classList.add('piano-roll-card');
 
+    // Append the SVG to the card container
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('piano-roll-svg');
+    svg.setAttribute('width', '90%');
+    // svg.setAttribute('height', '90%');
+    cardDiv.appendChild(svg);
+
     // Create and append other elements to the card container as needed
     const descriptionDiv = document.createElement('div');
     descriptionDiv.classList.add('description');
     descriptionDiv.textContent = `This is a piano roll number ${rollId}`;
     cardDiv.appendChild(descriptionDiv);
-
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.classList.add('piano-roll-svg');
-    svg.setAttribute('width', '80%');
-    svg.setAttribute('height', '150');
-
-    // Append the SVG to the card container
-    cardDiv.appendChild(svg);
 
     return { cardDiv, svg }
   }
@@ -58,7 +57,12 @@ class PianoRollDisplay {
   }
 }
 
-document.getElementById('loadCSV').addEventListener('click', async () => {
+// document.getElementById('loadCSV').addEventListener('click', async () => {
+  
+// });
+
+
+window.onload = async () => {
   const csvToSVG = new PianoRollDisplay();
   await csvToSVG.generateSVGs();
-});
+}
