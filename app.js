@@ -1,4 +1,5 @@
 import PianoRoll from './pianoroll.js';
+import Utils from './utils.js';
 
 class PianoRollDisplay {
   constructor(csvURL) {
@@ -35,13 +36,13 @@ class PianoRollDisplay {
     descriptionDiv.classList.add('description');
     descriptionDiv.textContent = `This is a piano roll number ${rollId}`;
     
-    if ( bigCard ) {
-      cardDiv.appendChild(svg);
+    // if ( bigCard ) {
+      // cardDiv.appendChild(svg);
+      // cardDiv.appendChild(descriptionDiv);
+    // } else { 
       cardDiv.appendChild(descriptionDiv);
-    } else { 
-      cardDiv.appendChild(descriptionDiv);
       cardDiv.appendChild(svg);
-    }
+    // }
 
     return { cardDiv, svg }
   }
@@ -85,11 +86,42 @@ class SelectedPianoRollSeletorTool
     this.updateSelection(this);
   }
 
-  getSelectionRectElement() {
-    for ( const child of this.rollDomElement.childNodes ) {
+  getSelectionRectElement(self) {
+    for ( const child of self.rollDomElement.childNodes ) {
       if ( child.id == "selection-rect" ) return child;
     }
     return null;
+  }
+
+  updateTimestampLabels(self) {
+    const timingLabelLeft = document.querySelector("#timing-label-left")
+    const timingLabelRight = document.querySelector("#timing-label-right")
+    if ( self.selection[0] == self.selection[1] ) {
+      timingLabelLeft.style.display = "none";
+      timingLabelRight.style.display = "none";
+      return;
+    } else {
+      timingLabelLeft.style.display = "block";
+      timingLabelRight.style.display = "block";
+    }
+
+    let start = Number(self.rollDomElement.dataset.rollStart);
+    let end = Number(self.rollDomElement.dataset.rollEnd);
+    let tMin = Math.min(...self.selection);
+    let tMax = Math.max(...self.selection);
+    timingLabelLeft.innerHTML = (start + (end-start) * tMin).toFixed(4);
+    timingLabelRight.innerHTML = (start + (end-start) * tMax).toFixed(4);
+
+    const selectionRect = self.getSelectionRectElement(self)
+    if ( !selectionRect ) return;
+    const selectionRectBoundingRect = selectionRect.getBoundingClientRect();
+    const timingLabelLeftBoundingRect = timingLabelLeft.getBoundingClientRect();
+    const timingLabelRightBoundingRect = timingLabelRight.getBoundingClientRect();
+    timingLabelLeft.style.left = `${selectionRectBoundingRect.x-timingLabelLeftBoundingRect.width}px`;
+    timingLabelLeft.style.top = `${selectionRectBoundingRect.y-timingLabelLeftBoundingRect.height-5}px`;
+    
+    timingLabelRight.style.left = `${selectionRectBoundingRect.x+selectionRectBoundingRect.width}px`;
+    timingLabelRight.style.top = `${selectionRectBoundingRect.y-timingLabelRightBoundingRect.height-5}px`;
   }
 
   hightlightSelectedNotes(self)
@@ -113,6 +145,23 @@ class SelectedPianoRollSeletorTool
     }
   }
 
+  getSelectedNotes(self) {
+    let result = []
+    for ( const child of self.rollDomElement.childNodes ) {
+      if ( !child.classList.contains("note-rectangle") ) continue;
+      if ( self.selection[0] == self.selection[1] ) continue;
+      let childX = Number(child.getAttribute('x'));
+      let childW = Number(child.getAttribute('width'));
+      let xMin = Math.min(...self.selection);
+      let xMax = Math.max(...self.selection);
+      if ( Utils.between(childX, xMin, xMax) || Utils.between(childX+childW, xMin, xMax) ) {
+        if ( child.dataset.noteData )
+          result.push(JSON.parse(child.dataset.noteData));
+      } 
+    }
+    return result;
+  }
+
   getFirstNoteRectangle() {
     for ( const child of this.rollDomElement.childNodes ) {
       if ( child.classList.contains("note-rectangle") ) return child;
@@ -121,7 +170,7 @@ class SelectedPianoRollSeletorTool
   }
 
   updateSelection(self) {
-    let selectionRect = self.getSelectionRectElement();
+    let selectionRect = self.getSelectionRectElement(self);
     if ( !selectionRect ) {
       selectionRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       let elementBefore = self.getFirstNoteRectangle();
@@ -139,6 +188,7 @@ class SelectedPianoRollSeletorTool
     // console.log(self)
     
     self.hightlightSelectedNotes(self);
+    self.updateTimestampLabels(self);
     requestAnimationFrame(function() {
       self.updateSelection(self);
     });
@@ -160,9 +210,24 @@ class SelectedPianoRollSeletorTool
     self.isSelecting = true;
   }
 
-  stopSelecting() {
+  stopSelecting(self) {
     // console.log("Stopped selecting")
-    this.isSelecting = false;
+    self.isSelecting = false;
+    self.displaySelectedNotes(self);
+  }
+
+  displaySelectedNotes(self)
+  {
+    const notesDataToDisplay = self.getSelectedNotes(self);
+    let selectedNotesOutput;
+    if ( document.querySelector("#selectedPianoRollView > #selectedNotesOutput") ) {
+      selectedNotesOutput = document.querySelector("#selectedPianoRollView > #selectedNotesOutput");
+    } else {
+      selectedNotesOutput = document.createElement('div');
+      document.querySelector("#selectedPianoRollView").append(selectedNotesOutput);
+      selectedNotesOutput.id = "selectedNotesOutput";
+    }
+    selectedNotesOutput.innerHTML = `<pre>${JSON.stringify( notesDataToDisplay, null, 4 )}</pre>`;
   }
 }
 
@@ -186,7 +251,7 @@ class SelectedPianoRollDisplay
     const toDisplay = csvToSVG.preparePianoRollCard(id, true);
     document.querySelector("#selectedPianoRollView").innerHTML = 
     `<span class="return-button">X</span>`;
-    document.querySelector(".return-button").addEventListener("click", this.hideSelectedPianoRollDisplay )
+    document.querySelector(".return-button").addEventListener("click", this.hideSelectedPianoRollDisplay );
     document.querySelector("#selectedPianoRollView").appendChild(toDisplay.cardDiv)
     const start = id * 60;
     const end = start + 60;
@@ -209,4 +274,5 @@ window.onload = async () => {
   await csvToSVG.generateSVGs();
   selectedPianoRollDisplay = new SelectedPianoRollDisplay();
   selectedPianoRollDisplay.data = csvToSVG.data;
+  console.log(selectedPianoRollDisplay.data)
 }

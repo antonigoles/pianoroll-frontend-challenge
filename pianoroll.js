@@ -60,9 +60,14 @@ export default class PianoRoll {
     pitch_span = pitch_max - pitch_min;
     this.note_height = 1 / pitch_span;
     this.drawEmptyPianoRoll(pitch_min, pitch_max)
+    this.svgElement.dataset.rollStart = this.start;
+    this.svgElement.dataset.rollEnd = sequence[sequence.length - 1].end; 
 
     sequence.forEach((note) => {
       const note_rectangle = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+
+      // store note data for later readings
+      note_rectangle.dataset.noteData = JSON.stringify(note);
 
       // Position and width are based on time
       const x = this.timeToX(note.start - this.start);
