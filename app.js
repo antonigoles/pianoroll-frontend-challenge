@@ -18,22 +18,30 @@ class PianoRollDisplay {
     }
   }
 
-  preparePianoRollCard(rollId) {
+  preparePianoRollCard(rollId, bigCard=false) {
     const cardDiv = document.createElement('div');
-    cardDiv.classList.add('piano-roll-card');
+    cardDiv.classList.add( bigCard ? 'piano-roll-big-card' : 'piano-roll-card');
+    cardDiv.dataset.rollId = rollId;
 
     // Append the SVG to the card container
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.classList.add('piano-roll-svg');
     svg.setAttribute('width', '90%');
-    // svg.setAttribute('height', '90%');
-    cardDiv.appendChild(svg);
+    svg.setAttribute('height', '90%');
+    
 
     // Create and append other elements to the card container as needed
     const descriptionDiv = document.createElement('div');
     descriptionDiv.classList.add('description');
     descriptionDiv.textContent = `This is a piano roll number ${rollId}`;
-    cardDiv.appendChild(descriptionDiv);
+    
+    if ( bigCard ) {
+      cardDiv.appendChild(svg);
+      cardDiv.appendChild(descriptionDiv);
+    } else { 
+      cardDiv.appendChild(descriptionDiv);
+      cardDiv.appendChild(svg);
+    }
 
     return { cardDiv, svg }
   }
@@ -52,17 +60,153 @@ class PianoRollDisplay {
       const { cardDiv, svg } = this.preparePianoRollCard(it)
 
       pianoRollContainer.appendChild(cardDiv);
+      cardDiv.addEventListener('click', handleCardClick)
       const roll = new PianoRoll(svg, partData);
     }
   }
 }
 
-// document.getElementById('loadCSV').addEventListener('click', async () => {
-  
-// });
+const csvToSVG = new PianoRollDisplay();
 
+class SelectedPianoRollSeletorTool
+{
+  isSelecting = false;
+  selection = [0,0];
+
+
+  constructor(id) {
+    let self = this;
+    this.id = id;
+    this.rollDomElement = document.querySelector(".piano-roll-big-card > svg");
+    this.rollDomElement.addEventListener("mousedown", function(e) { self.startSelecting(e, self); })
+    this.rollDomElement.addEventListener("mouseleave", function(e) { self.stopSelecting(self); } )
+    this.rollDomElement.addEventListener("mouseup", function(e) { self.stopSelecting(self); })
+    this.rollDomElement.addEventListener("mousemove", function(e) { self.trackMouse(e, self); })
+    this.updateSelection(this);
+  }
+
+  getSelectionRectElement() {
+    for ( const child of this.rollDomElement.childNodes ) {
+      if ( child.id == "selection-rect" ) return child;
+    }
+    return null;
+  }
+
+  hightlightSelectedNotes(self)
+  {
+    for ( const child of self.rollDomElement.childNodes ) {
+      if ( !child.classList.contains("note-rectangle") ) continue;
+      if ( self.selection[0] == self.selection[1] ) {
+        child.setAttribute('fill-opacity', "1");
+        continue;
+      }
+      let childX = Number(child.getAttribute('x'));
+      let childW = Number(child.getAttribute('width'));
+      // console.log(childX+childW)
+      let xMin = Math.min(...self.selection);
+      let xMax = Math.max(...self.selection);
+      if ( Utils.between(childX, xMin, xMax) || Utils.between(childX+childW, xMin, xMax) ) {
+        child.setAttribute('fill-opacity', "1")
+      } else {
+        child.setAttribute('fill-opacity', "0.2")
+      }
+    }
+  }
+
+  getFirstNoteRectangle() {
+    for ( const child of this.rollDomElement.childNodes ) {
+      if ( child.classList.contains("note-rectangle") ) return child;
+    }
+    return null;
+  }
+
+  updateSelection(self) {
+    let selectionRect = self.getSelectionRectElement();
+    if ( !selectionRect ) {
+      selectionRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      let elementBefore = self.getFirstNoteRectangle();
+      self.rollDomElement.insertBefore(selectionRect, elementBefore);
+    }
+    selectionRect.id = "selection-rect";
+    selectionRect.setAttribute('fill', '#ffffff');
+    selectionRect.setAttribute('fill-opacity', '0.666');
+    let xMin = Math.min(...self.selection);
+    let xMax = Math.max(...self.selection) - xMin;
+    // if ( xMax > 0.99 ) xMax = 1;
+    selectionRect.setAttribute('x', `${xMin}`);
+    selectionRect.setAttribute('width', `${xMax}`);
+    selectionRect.setAttribute('height', `1`);
+    // console.log(self)
+    
+    self.hightlightSelectedNotes(self);
+    requestAnimationFrame(function() {
+      self.updateSelection(self);
+    });
+  }
+
+  trackMouse(e, self) {
+    if ( this.isSelecting ) {
+      let boxW = self.rollDomElement.getBoundingClientRect().width;
+      self.selection[1] = (e.offsetX+2)/boxW;
+      // console.log(self.selection)
+    }
+  }
+
+  startSelecting(e, self) {
+    // console.log("Started selecting")
+    let boxW = self.rollDomElement.getBoundingClientRect().width;
+    self.selection = [e.offsetX/boxW, e.offsetX/boxW];
+    // console.log(self.selection);
+    self.isSelecting = true;
+  }
+
+  stopSelecting() {
+    // console.log("Stopped selecting")
+    this.isSelecting = false;
+  }
+}
+
+class SelectedPianoRollDisplay
+{
+  data;
+  constructor() {}
+
+  showSelectedPianoRollDisplay() {
+    document.querySelector("#pianoRollContainer").classList.add("pianoRollContainerMinimized");
+    document.querySelector("#selectedPianoRollView").style.display = "flex";
+  }
+
+  hideSelectedPianoRollDisplay() {
+    document.querySelector("#pianoRollContainer").classList.remove("pianoRollContainerMinimized");
+    document.querySelector("#selectedPianoRollView").style.display = "none";
+  }
+
+  setSelectedPianoRoll(id) 
+  {
+    const toDisplay = csvToSVG.preparePianoRollCard(id, true);
+    document.querySelector("#selectedPianoRollView").innerHTML = 
+    `<span class="return-button">X</span>`;
+    document.querySelector(".return-button").addEventListener("click", this.hideSelectedPianoRollDisplay )
+    document.querySelector("#selectedPianoRollView").appendChild(toDisplay.cardDiv)
+    const start = id * 60;
+    const end = start + 60;
+    const partData = csvToSVG.data.slice(start, end);
+    const roll = new PianoRoll(toDisplay.svg, partData);
+    this.selectorTool = new SelectedPianoRollSeletorTool(id);
+  }
+}
+
+let selectedPianoRollDisplay = null;
+
+function handleCardClick(e) 
+{
+  e.stopPropagation();
+  selectedPianoRollDisplay.showSelectedPianoRollDisplay();
+  selectedPianoRollDisplay.setSelectedPianoRoll(e.currentTarget.dataset.rollId);
+}
 
 window.onload = async () => {
-  const csvToSVG = new PianoRollDisplay();
   await csvToSVG.generateSVGs();
+  selectedPianoRollDisplay = new SelectedPianoRollDisplay();
+  selectedPianoRollDisplay.data = csvToSVG.data;
 }

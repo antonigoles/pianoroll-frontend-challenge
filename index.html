@@ -11,7 +11,7 @@
 
 	<link rel="stylesheet" type="text/css" href="styles.css">
   <link rel="icon" type="image/x-icon" href="assets/favicon.svg">
-
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   <title>PianoRoll</title>
 </head>
 <body>
@@ -22,11 +22,14 @@
   </nav>
 
   <div id="page-container">
-    <div id="selectedPianoRollView"></div>
+    <div style="display: none;" id="selectedPianoRollView">
+      <div class="spinning-wheel"></div>
+    </div>
     <div id="pianoRollContainer">
       <div class="spinning-wheel"></div>
     </div>
   </div>
+  <script src="utils.js"></script>
   <script src="app.js" type="module"></script>
 </body>
 </html>
