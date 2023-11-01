@@ -1,5 +1,10 @@
 # PianoRoll Frontend Task
 
+# Showcase
+
+![](https://github.com/Your_Repository_Name/Your_GIF_Name.gif)
+
+
 ## Introduction
 
 You will be building on top of a demo code that generates a widget for browsing Piano Rolls - the core element of [Piano Roll](https://pianoroll.io).
